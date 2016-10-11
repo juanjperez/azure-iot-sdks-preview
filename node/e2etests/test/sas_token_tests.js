@@ -112,13 +112,14 @@ var runTests = function (hubConnectionString, deviceTransport, provisionedDevice
             });
         });
 
-        deviceClient.on('_sharedAccessSignatureUpdated', function() { 
-          deviceClient.removeAllListeners('_sharedAccessSignatureUpdated');
-          serviceClient.open(function (err) {
-            if (err) return done(err);
-            serviceClient.send(provisionedDevice.deviceId, messageToSend, function (err) {
+        deviceClient.on('_sharedAccessSignatureUpdated', function() {
+          setTimeout(function() {
+            serviceClient.open(function (err) {
               if (err) return done(err);
-            });
+              serviceClient.send(provisionedDevice.deviceId, messageToSend, function (err) {
+                if (err) return done(err);
+              });
+            },1000);
           });
         });
 
@@ -147,15 +148,15 @@ var runTests = function (hubConnectionString, deviceTransport, provisionedDevice
           }
         });
 
-        deviceClient.on('_sharedAccessSignatureUpdated', function() { 
-          deviceClient.removeAllListeners('_sharedAccessSignatureUpdated');
-
-          var message = new Message(buffer);
-          deviceClient.sendEvent(message, function (sendErr) {
-            if (sendErr) {
-              done(sendErr);
-            }
-          });
+        deviceClient.on('_sharedAccessSignatureUpdated', function() {
+          setTimeout(function() { 
+            var message = new Message(buffer);
+            deviceClient.sendEvent(message, function (sendErr) {
+              if (sendErr) {
+                done(sendErr);
+              }
+            });
+          }, 1000);
         });
         deviceClient._renewSharedAccessSignature();
       });
