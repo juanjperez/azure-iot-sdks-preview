@@ -149,7 +149,8 @@ var runTests = function (hubConnectionString, deviceTransport, provisionedDevice
         });
 
         deviceClient.on('_sharedAccessSignatureUpdated', function() {
-          setTimeout(function() { 
+          setTimeout(function() {
+            console.log('sending ' +uuidData); 
             var message = new Message(buffer);
             deviceClient.sendEvent(message, function (sendErr) {
               if (sendErr) {
