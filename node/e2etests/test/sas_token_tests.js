@@ -10,7 +10,6 @@ var serviceSdk = require('azure-iothub');
 var createDeviceClient = require('./testUtils.js').createDeviceClient;
 var closeDeviceServiceClients = require('./testUtils.js').closeDeviceServiceClients;
 var eventHubClient = require('azure-event-hubs').Client;
-var Client = require('azure-iot-device').Client;
 var Message = require('azure-iot-common').Message;
 
 function waitForEventHubMessages(ehClient, deviceId, callback) {
@@ -42,10 +41,9 @@ function waitForEventHubMessages(ehClient, deviceId, callback) {
  
 
 var runTests = function (hubConnectionString, deviceTransport, provisionedDevice) {
-  describe.skip('Device utilizing ' + provisionedDevice.authenticationDescription + ' authentication and ' + deviceTransport.name, function () {
+  describe('Device utilizing ' + provisionedDevice.authenticationDescription + ' authentication and ' + deviceTransport.name, function () {
 
     var serviceClient, deviceClient, ehClient;
-    var oldSasRenewalInterval;
 
     before(function() {
       this.timeout(500);
@@ -59,13 +57,10 @@ var runTests = function (hubConnectionString, deviceTransport, provisionedDevice
       // failures in other tests because of Amqp exceptions lingering about from
       // previous tests.
       if (deviceTransport.name === 'Amqp') this.skip();
-      
-      oldSasRenewalInterval = Client.sasRenewalInterval;
-      Client.sasRenewalInterval = 1000;
     });
 
     beforeEach(function () {
-      this.timeout(500);
+      this.timeout(5000);
       
       serviceClient = serviceSdk.Client.fromConnectionString(hubConnectionString);
       deviceClient = createDeviceClient(deviceTransport, provisionedDevice);
@@ -91,12 +86,6 @@ var runTests = function (hubConnectionString, deviceTransport, provisionedDevice
         }
       });
      });
-
-    after(function() {
-      this.timeout(500);
-      
-      Client.sasRenewalInterval = oldSasRenewalInterval;
-    });
 
     it('Device renews SAS after connection and is still able to receive C2D', function (done) {
       this.timeout(20000);
@@ -132,6 +121,8 @@ var runTests = function (hubConnectionString, deviceTransport, provisionedDevice
             });
           });
         });
+
+        deviceClient._renewSharedAccessSignature();
       });
     });
 
@@ -166,6 +157,7 @@ var runTests = function (hubConnectionString, deviceTransport, provisionedDevice
             }
           });
         });
+        deviceClient._renewSharedAccessSignature();
       });
     });
   });
