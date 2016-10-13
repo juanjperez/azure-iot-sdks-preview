@@ -1,10 +1,10 @@
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-# Running DM Patterns Samples
+# Running the device management patterns samples
 
-From the root directory of the repo, run through the following steps to see the device and service interacting to enable the DM patterns:
+From the root directory of the repository, run through the following steps to see the device and service interacting to enable the device management patterns:
 
-### Reboot DM Pattern:
+### Reboot device management pattern:
 
 1. Start the device side first, as it will register the C2D method listener for reboot:
     ```
@@ -18,7 +18,7 @@ From the root directory of the repo, run through the following steps to see the 
     ```
 
 
-### Firmware Update DM Pattern:
+### Firmware Update device management pattern:
 
 1. Start the device side first, as it will register the C2D method listener for firmware update:
 

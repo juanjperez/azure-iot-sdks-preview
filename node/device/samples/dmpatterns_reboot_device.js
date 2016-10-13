@@ -14,23 +14,8 @@ if(process.argv.length < 3) {
 var connectionString = process.argv[2];
 var client = Client.fromConnectionString(connectionString, Protocol);
 
-// device entry point
-function main() {
-  client.open(function(err) {
-    if (err) {
-      console.error('Could not connect to IotHub client.');
-    }  else {
-      console.log('Client connected to IoT Hub.  Waiting for reboot device method.');
-      
-      // Subscribe to the 'reboot' device method
-      client.onDeviceMethod('reboot', onReboot);
-    }
-  });
-}
-
-var onReboot = function(request, response) {
-
-  // Respond the cloud app for the direct method
+// Implementation of reboot flow
+function onReboot(request, response) {
   response.send(200, 'Reboot started', function(err) {
     if (err) {
       console.error('An error occured when sending a method response:\n' + err.toString());
@@ -39,16 +24,6 @@ var onReboot = function(request, response) {
     }
   });
   
-  // Report the reboot before the physical restart.  Note that the reboot may fail
-  // and that failure should also be reported.
-  var patch = {
-    iothubDM : {
-      reboot : {
-        lastReboot : new Date().toISOString(),
-      }
-    }
-  };
-
   // Get device Twin
   client.getTwin(function(err, twin) {
     if (err) {
@@ -59,21 +34,26 @@ var onReboot = function(request, response) {
       // Update the reported properties for this device through the 
       // twin.  This enables the back end app to query for all device that
       // have completed a reboot based on the lastReboot property.
-      twin.properties.reported.update(patch, function(err) {
-        if (err) {
-          console.error('Error updating twin');
+      twin.properties.reported.update({
+        iothubDM : {
+          reboot : {
+            startedRebootTime : new Date().toISOString(),
+          }
         }
-        else {
-          console.log('Device reboot twin state reported')
-        }
-          
+      }, function(err) {
+        if (err) console.error('Error updating twin');
+        else console.log('Device reboot twin state reported')
       });  
     }
   });
   
   // Add your device's reboot API for physical restart.
   console.log('Rebooting!');        
-
 };
 
-main();
+client.open(function(err) {
+  if (!err) {
+    client.onDeviceMethod('reboot', onReboot);
+    console.log('Client connected to IoT Hub.  Waiting for reboot device method.');
+  }
+});

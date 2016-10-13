@@ -4,6 +4,7 @@
 
 var Registry = require('azure-iothub').Registry;
 var Client = require('azure-iothub').Client;
+var async = require('async');
 
 // receive the IoT Hub connection string as a command line parameter
 if(process.argv.length < 4) {
@@ -16,63 +17,38 @@ var registry = Registry.fromConnectionString(connectionString);
 var client = Client.fromConnectionString(connectionString);
 var deviceToReboot = process.argv[3];
 
-//
-// Service entry point: Initiate the reboot process on the device using a device method
-//
-function main() {
-  // Invoke the 'reboot' method on the device
-  var methodParams = {
-      methodName: "reboot",
-      payload: null,
-      timeoutInSeconds: 10
-  };
-
-  // call a method on the device to reboot the device
-  client.invokeDeviceMethod(deviceToReboot, methodParams, function(err, result) {
-    if (err) { 
-      console.error("Direct method error: "+err.message);
-    } else {
-      console.log("Successfully invoked the device to reboot.");  
-    }
-  });
-
-  showTwinLastRebootForever(function(err) {
-    if (err) {
-      console.error("Error showing twin: "+err);
-    } 
-  });
-}
-
-// 
-// function used to periodically query for the lastReboot time
-//
-var showTwinLastRebootForever = function(callback) {
-  // Output the status of the firmware update periodically
-  setInterval(function() {
-    // Get the twin that has the updated lastReboot time
-    registry.getTwin(deviceToReboot, function(err, twin){
-
-      if (twin.properties.reported.iothubDM != null)
-      {
-        if (err) {
-          console.error('Could not query twins: ' + err.constructor.name + ': ' + err.message);
-          callback(err);
-        } else {
-          
-          // The device uses the DM pattern to report the status
-          // of the reboot.  This simplifies reporting against many devices.
-          var lastRebootTime = twin.properties.reported.iothubDM.reboot.lastReboot;
-          console.log('Last reboot time: ' + JSON.stringify(lastRebootTime, null, 2));
-          callback(null);
+// Initiate the reboot through a method
+function invokeReboot(callback) {
+    client.invokeDeviceMethod(deviceToReboot, 
+        {
+            methodName: "reboot",
+            payload: null,
+            timeoutInSeconds: 30
+        }, function (err, result) {
+            console.log(JSON.stringify(result, null, 2));
+            callback(err);
         }
-      } else 
-        console.log('Waiting for device to report last reboot time.');
-        callback(null);
-    });
-  }
-  , 2000);
+    )
 }
+ 
+// Get the twin and output the reboot status from reported properties
+function displayRebootStatus(callback) {
+    registry.getTwin(deviceToReboot, function(err, twin){
+        if (err) callback(err);
+        else {
+            // Output the value of twin reported properties, which includes the reboot details
+            console.log(twin.properties.reported);
+            callback(null);
+        }
+    });
+};
 
-main();
-
-
+// Initiate the reboot process on the device using a device method
+async.waterfall([
+    invokeReboot,
+    displayRebootStatus 
+],
+function(err) {
+    if (err) console.error(err);
+        else console.log('Reboot complete');
+});
