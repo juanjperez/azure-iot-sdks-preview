@@ -21,10 +21,10 @@ var client = Client.fromConnectionString(connectionString, Protocol);
 function onFirmwareUpdate(request, response) {
   // Get the firmware image Uri from the body of the method request
   var fwPackageUri = request.payload.fwPackageUri;
-  var result = url.parse(fwPackageUri);
+  var fwPackageUriObj = url.parse(fwPackageUri);
   
   // Ensure that the url is to a secure url
-  if (result.protocol != 'https:') {
+  if (fwPackageUriObj.protocol !== 'https:') {
     response.send(400, 'Invalid URL format.  Must use https:// protocol.', function(err) {
       if (err) console.error('Error sending method response :\n' + err.toString());
       else console.log('Response to method \'' + request.methodName + '\' sent successfully.');
