@@ -9,38 +9,12 @@ var async = require('async');
 
 // receive the IoT Hub device connection string as a command line parameter
 if(process.argv.length < 3) {
-    console.error('Usage: node dmpatterns_fwupdate_device.js <<IoT Hub Device Connection String>>');
-    process.exit(1);
+  console.error('Usage: node dmpatterns_fwupdate_device.js <<IoT Hub Device Connection String>>');
+  process.exit(1);
 }
 
 var connectionString = process.argv[2];
 var client = Client.fromConnectionString(connectionString, Protocol);
-
-// The handler for the firmwareUpdate method.  This initiates
-// the multi-phase firmware update sequence.
-function onFirmwareUpdate(request, response) {
-  // Get the firmware image Uri from the body of the method request
-  var fwPackageUri = request.payload.fwPackageUri;
-  var fwPackageUriObj = url.parse(fwPackageUri);
-  
-  // Ensure that the url is to a secure url
-  if (fwPackageUriObj.protocol !== 'https:') {
-    response.send(400, 'Invalid URL format.  Must use https:// protocol.', function(err) {
-      if (err) console.error('Error sending method response :\n' + err.toString());
-      else console.log('Response to method \'' + request.methodName + '\' sent successfully.');
-    });
-  } else {
-    // Respond the cloud app for the device method
-    response.send(200, 'Firmware update started.', function(err) {
-      if (err) console.error('Error sending method response :\n' + err.toString());
-      else console.log('Response to method \'' + request.methodName + '\' sent successfully.');
-    });
-
-    initiateFirmwareUpdateFlow(fwPackageUri, function(err){
-      if (!err) console.log("Completed firmwareUpdate flow");
-    });
-  }
-}
 
 // Implementation of firmwareUpdate flow
 function initiateFirmwareUpdateFlow(fwPackageUri, callback) {
@@ -48,12 +22,12 @@ function initiateFirmwareUpdateFlow(fwPackageUri, callback) {
     function (callback) {
       downloadImage(fwPackageUri, callback);
     },
-    function (imageData, callback) {
-      applyImage(imageData, callback);
-    }
+    applyImage
   ], function(err) {
-    if (err) console.error('Error : ' + err.message);
-    callback(null);
+    if (err) {
+      console.error('Error : ' + err.message);
+    } 
+    callback(err);
   });
 }
 
@@ -69,10 +43,11 @@ function reportFWUpdateThroughTwin(firmwareUpdateValue, callback) {
   client.getTwin(function(err, twin) {
     if (!err) {
       twin.properties.reported.update(patch, function(err) {
-        callback(null);
+        callback(err);
       });      
-    } else
+    } else {
       callback(err);
+    }
   });
 };
 
@@ -90,13 +65,14 @@ function downloadImage(fwPackageUriVal, callback) {
       callback);
     },
     function (callback) {
+      console.log("Downloading image from URI: " + fwPackageUriVal);
+      
       // Replace this line with the code to download the image.  Delay used to simulate the download.
       setTimeout(function() { 
-        console.log("Downloading image from URI: " + fwPackageUriVal);
-        callback(null, imageResult); 
+        callback(null); 
       }, 4000);
     },
-    function (image, callback) {
+    function (callback) {
       reportFWUpdateThroughTwin ({ 
         status: 'download complete',
         downloadCompleteTime : new Date().toISOString()
@@ -109,8 +85,9 @@ function downloadImage(fwPackageUriVal, callback) {
       reportFWUpdateThroughTwin( { status : 'Download image failed' }, function(err) {
         callback(err);  
       })
+    } else {
+      callback(null, imageResult);
     }
-    callback(null, imageResult);
   });
 }
 
@@ -126,9 +103,10 @@ function applyImage(imageData, callback) {
       callback);
     },
     function (callback) {
+      console.log("Applying firmware image"); 
+
       // Replace this line with the code to download the image.  Delay used to simulate the download.
       setTimeout(function() { 
-        console.log("Applying firmware image"); 
         callback(null);
       }, 4000);      
     },
@@ -152,7 +130,29 @@ function applyImage(imageData, callback) {
 
 client.open(function(err) {
   if (!err) {
-    client.onDeviceMethod('firmwareUpdate', onFirmwareUpdate);
+    client.onDeviceMethod('firmwareUpdate', function(request, response) {
+      // Get the firmware image Uri from the body of the method request
+      var fwPackageUri = request.payload.fwPackageUri;
+      var fwPackageUriObj = url.parse(fwPackageUri);
+      
+      // Ensure that the url is to a secure url
+      if (fwPackageUriObj.protocol !== 'https:') {
+        response.send(400, 'Invalid URL format.  Must use https:// protocol.', function(err) {
+          if (err) console.error('Error sending method response :\n' + err.toString());
+          else console.log('Response to method \'' + request.methodName + '\' sent successfully.');
+        });
+      } else {
+        // Respond the cloud app for the device method
+        response.send(200, 'Firmware update started.', function(err) {
+          if (err) console.error('Error sending method response :\n' + err.toString());
+          else console.log('Response to method \'' + request.methodName + '\' sent successfully.');
+        });
+
+        initiateFirmwareUpdateFlow(fwPackageUri, function(err){
+          if (!err) console.log("Completed firmwareUpdate flow");
+        });
+      }
+    });
     console.log('Client connected to IoT Hub.  Waiting for firmwareUpdate device method.');
   }
 });
