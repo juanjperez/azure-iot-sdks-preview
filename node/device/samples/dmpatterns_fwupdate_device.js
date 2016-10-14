@@ -16,6 +16,35 @@ if(process.argv.length < 3) {
 var connectionString = process.argv[2];
 var client = Client.fromConnectionString(connectionString, Protocol);
 
+client.open(function(err) {
+  if (!err) {
+    client.onDeviceMethod('firmwareUpdate', function(request, response) {
+      // Get the firmware image Uri from the body of the method request
+      var fwPackageUri = request.payload.fwPackageUri;
+      var fwPackageUriObj = url.parse(fwPackageUri);
+      
+      // Ensure that the url is to a secure url
+      if (fwPackageUriObj.protocol !== 'https:') {
+        response.send(400, 'Invalid URL format.  Must use https:// protocol.', function(err) {
+          if (err) console.error('Error sending method response :\n' + err.toString());
+          else console.log('Response to method \'' + request.methodName + '\' sent successfully.');
+        });
+      } else {
+        // Respond the cloud app for the device method
+        response.send(200, 'Firmware update started.', function(err) {
+          if (err) console.error('Error sending method response :\n' + err.toString());
+          else console.log('Response to method \'' + request.methodName + '\' sent successfully.');
+        });
+
+        initiateFirmwareUpdateFlow(fwPackageUri, function(err){
+          if (!err) console.log("Completed firmwareUpdate flow");
+        });
+      }
+    });
+    console.log('Client connected to IoT Hub.  Waiting for firmwareUpdate device method.');
+  }
+});
+
 // Implementation of firmwareUpdate flow
 function initiateFirmwareUpdateFlow(fwPackageUri, callback) {
   async.waterfall([
@@ -30,26 +59,6 @@ function initiateFirmwareUpdateFlow(fwPackageUri, callback) {
     callback(err);
   });
 }
-
-// Helper function to update the twin reported properties.
-// Used by every phase of the firmware update.
-function reportFWUpdateThroughTwin(firmwareUpdateValue, callback) {
-  var patch = {
-      iothubDM : {
-        firmwareUpdate : firmwareUpdateValue
-      }
-  };
-  console.log(JSON.stringify(patch, null, 2));
-  client.getTwin(function(err, twin) {
-    if (!err) {
-      twin.properties.reported.update(patch, function(err) {
-        callback(err);
-      });      
-    } else {
-      callback(err);
-    }
-  });
-};
 
 // Function that implements the 'downloadImage' phase of the 
 // firmware update process.
@@ -128,31 +137,22 @@ function applyImage(imageData, callback) {
   })
 }
 
-client.open(function(err) {
-  if (!err) {
-    client.onDeviceMethod('firmwareUpdate', function(request, response) {
-      // Get the firmware image Uri from the body of the method request
-      var fwPackageUri = request.payload.fwPackageUri;
-      var fwPackageUriObj = url.parse(fwPackageUri);
-      
-      // Ensure that the url is to a secure url
-      if (fwPackageUriObj.protocol !== 'https:') {
-        response.send(400, 'Invalid URL format.  Must use https:// protocol.', function(err) {
-          if (err) console.error('Error sending method response :\n' + err.toString());
-          else console.log('Response to method \'' + request.methodName + '\' sent successfully.');
-        });
-      } else {
-        // Respond the cloud app for the device method
-        response.send(200, 'Firmware update started.', function(err) {
-          if (err) console.error('Error sending method response :\n' + err.toString());
-          else console.log('Response to method \'' + request.methodName + '\' sent successfully.');
-        });
-
-        initiateFirmwareUpdateFlow(fwPackageUri, function(err){
-          if (!err) console.log("Completed firmwareUpdate flow");
-        });
+// Helper function to update the twin reported properties.
+// Used by every phase of the firmware update.
+function reportFWUpdateThroughTwin(firmwareUpdateValue, callback) {
+  var patch = {
+      iothubDM : {
+        firmwareUpdate : firmwareUpdateValue
       }
-    });
-    console.log('Client connected to IoT Hub.  Waiting for firmwareUpdate device method.');
-  }
-});
+  };
+  console.log(JSON.stringify(patch, null, 2));
+  client.getTwin(function(err, twin) {
+    if (!err) {
+      twin.properties.reported.update(patch, function(err) {
+        callback(err);
+      });      
+    } else {
+      callback(err);
+    }
+  });
+};
